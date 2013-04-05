@@ -16,6 +16,8 @@ typedef struct rvm_undo_t {
   void *backupPtr;
 } rvm_undo_t;
 
+typedef trans_t int;
+
 typedef struct rvm_seg_t {
   trans_t id;
   int numsegs;

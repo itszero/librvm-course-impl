@@ -16,20 +16,20 @@ typedef struct rvm_undo_t {
   void *backupPtr;
 } rvm_undo_t;
 
-typedef trans_t int;
+typedef int trans_t;
 
-typedef struct rvm_seg_t {
+typedef struct rvm_trans_t {
   trans_t id;
   int numsegs;
   void **segbases;
   rvm_undo_t *undologs;      /* A utlist singly-linked-list */
-}
+} rvm_trans_t;
 
-struct rvm_data_t {
+typedef struct rvm_data_t {
   char *directoryName;
   rvm_seg_t *segments;       /* A utlist singly-linked-list */
   rvm_trans_t *transactions; /* as above */
-}
+} rvm_data_t;
 
 typedef struct rvm_data_t* rvm_t;
 

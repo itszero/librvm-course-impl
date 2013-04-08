@@ -4,6 +4,8 @@
 #include "utlist.h"
 /* Doc for utlist: http://troydhanson.github.com/uthash/utlist.html */
 
+unsigned long globalTID = 0;
+
 typedef struct rvm_seg_t {
   char *name;
   long size;
@@ -23,6 +25,7 @@ typedef struct rvm_trans_t {
   int numsegs;
   void **segbases;
   rvm_undo_t *undologs;      /* A utlist singly-linked-list */
+  struct rvm_trans_t* next;
 } rvm_trans_t;
 
 typedef struct rvm_data_t {

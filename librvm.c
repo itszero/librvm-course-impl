@@ -17,11 +17,11 @@ rvm_t rvm_init(const char *directory)
   snprintf(buf, sizeof buf, "%s.log", directory);
   rvm->logFilePtr = fopen(buf, "r");
   if(rvm->logFilePtr==NULL) {
-    printf("[rvm_init] %s log file does not exist, create one!", directory);
+    printf("[rvm_init] %s log file does not exist, create one!\n", directory);
     rvm->logFilePtr = fopen(buf, "w");
   }
   else {
-    printf("[rvm_init] %s log file exist!", directory);
+    printf("[rvm_init] %s log file exist!\n", directory);
     fclose(rvm->logFilePtr);
     rvm->logFilePtr = fopen(buf, "a");
   }
@@ -74,7 +74,11 @@ trans_t rvm_begin_trans(rvm_t rvm, int numsegs, void **segbases)
     globalTransPtr->next = NULL;
     globalTransPtr->rvmEntry = rvmPtr;
     LL_APPEND(globalTransHead, globalTransPtr);
+
+    return transPtr->id;
 }
+
+
 
 void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
 {

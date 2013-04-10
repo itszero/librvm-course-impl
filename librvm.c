@@ -34,7 +34,9 @@ int is_seg_exist(rvm_t rvm, const char *segname)
 
 rvm_t rvm_init(const char *directory)
 {
+    char buf[1024];
     rvm_t rvm = (rvm_t)malloc(sizeof(rvm_data_t));
+    memset(rvm, 0, sizeof(rvm));
     rvm->directoryName = strdup(directory);
     rvm->segments = NULL;
     rvm->transactions = NULL;
@@ -141,7 +143,11 @@ trans_t rvm_begin_trans(rvm_t rvm, int numsegs, void **segbases)
     globalTransPtr->next = NULL;
     globalTransPtr->rvmEntry = rvmPtr;
     LL_APPEND(globalTransHead, globalTransPtr);
+
+    return transPtr->id;
 }
+
+
 
 void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
 {

@@ -2,7 +2,7 @@ CC     = g++
 
 LIBSRC = librvm.c log.c
 RVMLIB = librvm.a
-TESTSRC = testRVM.c
+TESTSRC = testRVM.c librvm.c rvm.h
 TEST = testRVM
 
 CFLAGS = -Wall -g

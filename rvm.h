@@ -6,13 +6,18 @@
 #include "utlist.h"
 /* Doc for utlist: http://troydhanson.github.com/uthash/utlist.html */
 
-
+typedef enum rvm_seg_state_t {
+  UNMAPPED, MAPPED
+} rvm_seg_state_t;
 
 typedef struct rvm_seg_t {
   char *name;
   int size;
-  int offset;
   void *segbase;
+  int offset;
+  rvm_seg_state_t state;
+  FILE *file;
+  int log_entries_count;
   struct rvm_seg_t *next;
 } rvm_seg_t;
 
@@ -47,9 +52,6 @@ typedef struct global_trans_t {
 }global_trans_t;
 
 typedef struct rvm_data_t* rvm_t;
-
-
-
 
 extern rvm_t rvm_init(const char *directory);
 extern void *rvm_map(rvm_t rvm, const char *segname, int size_to_create);

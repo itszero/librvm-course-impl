@@ -68,19 +68,16 @@ void *rvm_map(rvm_t rvm, const char *segname, int size_to_create)
     memset(seg, 0, sizeof(seg));
     seg->name = strdup(segname);
     seg->segbase = (void*)malloc(size_to_create);
+    memset(seg->segbase, 0, size_to_create);
     seg->state = MAPPED;
     seg->log_entries_count = 0;
     sprintf(fName, "%s/%s.log", rvm->directoryName, seg->name);
+    seg->filePath = strdup(fName);
 
     if (access(fName, F_OK) != -1) {
         printf("%s log file exit!, read it out\n", segname);
-
-        seg->file = fopen(fName, "w");
         log_read(seg);
     }
-    else
-        seg->file = fopen(fName, "w");
-
 
     LL_APPEND(rvm->segments, seg);
 
@@ -98,7 +95,6 @@ void rvm_unmap(rvm_t rvm, void *segbase)
     target.segbase = segbase;
     LL_SEARCH(rvm->segments, seg, &target, cmp_segbase);
     seg->state = UNMAPPED;
-    fclose(seg->file);
     free(seg->segbase);
 }
 
@@ -117,8 +113,8 @@ void rvm_destroy(rvm_t rvm, const char *segname)
     LL_DELETE(rvm->segments, seg);
     free(seg->segbase);
 
-    sprintf(fName, "%s/%s.log", rvm->directoryName, seg->name);
-    unlink(fName);
+    unlink(seg->filePath);
+    free(seg->filePath);
     free(seg);
 }
 

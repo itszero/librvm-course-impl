@@ -9,10 +9,10 @@ CFLAGS = -Wall -g
 
 all: $(RVMLIB) $(TEST)
 
-$(RVMLIB): $(LIBSRC:.c=.o) log.h
+$(RVMLIB): $(LIBSRC:.c=.o)
 	ar rcs $(RVMLIB) $^
 
-$(TEST): $(TESTSRC:.c=.o)
+$(TEST): $(TESTSRC:.c=.o) $(RVMLIB)
 	$(CC) -o $@  $(TESTSRC)
 
 clean:

@@ -19,7 +19,7 @@ typedef struct rvm_seg_t {
   void *segbase;
   int offset;
   rvm_seg_state_t state;
-  FILE *file;
+  char *filePath;
   int log_entries_count;
   struct rvm_seg_t *next;
 } rvm_seg_t;

@@ -34,9 +34,9 @@ int main(int argc, char *argv[]) {
     rvm_about_to_modify(transID, logSegbases[2], 0, 16*sizeof(char));
 
     for(i=0;i<16;i++)
-        data1[i] = 999;
+        data1[i] = 0xAA;
     for(i=0;i<16;i++)
-        data2[i] = 999;
+        data2[i] = 0xBB;
     for(i=0;i<16;i++)
         data3[i] = '6';
     rvm_commit_trans(transID);

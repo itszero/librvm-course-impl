@@ -6,6 +6,9 @@
 #include "utlist.h"
 /* Doc for utlist: http://troydhanson.github.com/uthash/utlist.html */
 
+#define DEBUG
+
+
 typedef enum rvm_seg_state_t {
   UNMAPPED, MAPPED
 } rvm_seg_state_t;
@@ -22,8 +25,10 @@ typedef struct rvm_seg_t {
 } rvm_seg_t;
 
 typedef struct rvm_undo_t {
-  struct rvm_seg_t segment;
+  rvm_seg_t* segment;
   void *backupData;
+  int offset;
+  int size;
   struct rvm_undo_t* next;
 } rvm_undo_t;
 

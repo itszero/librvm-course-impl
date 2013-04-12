@@ -8,6 +8,9 @@
 unsigned long globalTID = 0;
 global_trans_t* globalTransHead = NULL;
 
+
+
+
 int cmp_segbase(rvm_seg_t *a, rvm_seg_t *b)
 {
     long segbase_a = (long)a->segbase;
@@ -75,6 +78,10 @@ void *rvm_map(rvm_t rvm, const char *segname, int size_to_create)
 
     LL_APPEND(rvm->segments, seg);
 
+    #ifdef DEBUG
+    printf("Map %s with size %d to 0x%x\n", seg->name, size_to_create, seg->segbase);
+    #endif    
+
     return seg->segbase;
 }
 
@@ -115,14 +122,13 @@ trans_t rvm_begin_trans(rvm_t rvm, int numsegs, void **segbases)
     rvm_data_t* rvmPtr = (rvm_data_t*)rvm;
     rvm_trans_t* transPtr = NULL;
     global_trans_t* globalTransPtr;
-
     // Check if any segments are in a transaction
     transPtr = rvmPtr->transactions;
     while(transPtr!=NULL) {
         for(i=0; i<numsegs; i++) {
             for(j=0; j<transPtr->numsegs; j++) {
                 if(segbases[i] == transPtr->segbases[j])
-                    return (trans_t)-1;
+                    return (trans_t)-1; //return error -1, no segment should be in other transaction
             }
         }
         transPtr = transPtr->next;
@@ -132,7 +138,9 @@ trans_t rvm_begin_trans(rvm_t rvm, int numsegs, void **segbases)
     transPtr = (rvm_trans_t*)malloc( sizeof(rvm_trans_t) );
     transPtr->id = globalTID++;
     transPtr->numsegs = numsegs;
-    transPtr->segbases = segbases;  //Can I do this? Or do I need to copy the input content?!
+    transPtr->segbases = (void**)malloc(sizeof(void*)*numsegs);
+    for(i=0;i<numsegs;i++)
+        transPtr->segbases[i] = segbases[i];
     transPtr->segModify = (bool*)calloc(numsegs, sizeof(bool));
     transPtr->next = NULL;
     LL_APPEND(rvmPtr->transactions, transPtr);
@@ -143,6 +151,13 @@ trans_t rvm_begin_trans(rvm_t rvm, int numsegs, void **segbases)
     globalTransPtr->next = NULL;
     globalTransPtr->rvmEntry = rvmPtr;
     LL_APPEND(globalTransHead, globalTransPtr);
+
+    #ifdef DEBUG
+    printf("Create transaction %d with %d segs: ", transPtr->id, transPtr->numsegs);
+    for(i=0;i<transPtr->numsegs;i++)
+        printf("0x%x ", transPtr->segbases[i]);
+    printf("\n");
+    #endif
 
     return transPtr->id;
 }
@@ -157,6 +172,7 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
     void* buffer;
     rvm_undo_t* undoPtr;
     int i;
+    rvm_seg_t* segPtr;
 
     //Find the transaction entry in the global transaction list
     globalTransPtr = globalTransHead;
@@ -181,13 +197,36 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
         }
     }
     undoPtr = (rvm_undo_t*) malloc( sizeof(rvm_undo_t) );
-    undoPtr->segment.size = size;
-    undoPtr->segment.offset = offset;
-    undoPtr->segment.segbase = segbase;
+    segPtr = globalTransPtr->rvmEntry->segments;
+    while(segPtr!=NULL) {
+        if(segPtr->segbase==segbase) { 
+            break;
+        }
+        segPtr = segPtr->next;
+    }
+    if(segPtr==NULL) {
+        printf("[rvm_about_to_modify] Cannot find segment!\n");
+        exit(1);
+    }    
+
+    undoPtr->segment =  segPtr; 
+    undoPtr->offset = offset;
+    undoPtr->size = size;
     buffer = (void*) malloc( size );
     bcopy((char*)segbase+offset, buffer, size );
     undoPtr->backupData = buffer;
     LL_APPEND(transPtr->undologs, undoPtr);
+
+    #ifdef DEBUG
+    printf("Backup transaction %d, segment %s(0x%x), data:", tid, segPtr->name, segPtr->segbase);
+    char* charPtr = (char*)undoPtr->backupData;
+    for(i=0;i<size;i++)
+        printf("%x", charPtr[i]);
+    printf("\n");
+    #endif
+
+
+
 }
 
 void rvm_commit_trans(trans_t tid)
@@ -198,6 +237,7 @@ void rvm_commit_trans(trans_t tid)
     rvm_undo_t* undoPtr;
     rvm_undo_t* prevUndoPtr;
     FILE* filePtr;
+    rvm_seg_t *segPtr;
 
     //Find the transaction entry in the global transaction list
     globalTransPtr = globalTransHead;
@@ -217,22 +257,18 @@ void rvm_commit_trans(trans_t tid)
     //Write the diff into log file
     transPtr = globalTransPtr->trans;
     undoPtr = transPtr->undologs;
-    filePtr = globalTransPtr->rvmEntry->logFilePtr;
     while(undoPtr!=NULL) {
-        /*Create the log file!*/
-
-        /******************/
-        /* NOT DONE YET!! */
-        /******************/
+        log_write(undoPtr->segment, undoPtr->offset, undoPtr->size);
 
         prevUndoPtr = undoPtr;
         undoPtr = undoPtr->next;
 
         LL_DELETE(globalTransPtr->trans->undologs, prevUndoPtr);    //Does it free the entry prevUndoPtr?
+        free( prevUndoPtr );
     }
     globalTransPtr->trans->undologs = NULL;
 
-   //Remove this transaction
+    //Remove this transaction
     LL_DELETE(globalTransPtr->rvmEntry->transactions, globalTransPtr->trans);
     LL_DELETE(globalTransHead, globalTransPtr);
 }
@@ -262,7 +298,7 @@ void rvm_abort_trans(trans_t tid)
     //Undo all modifications
     undoPtr = globalTransPtr->trans->undologs;
     while(undoPtr!=NULL) {
-        bcopy(undoPtr->backupData, (char*)undoPtr->segment.segbase+undoPtr->segment.offset, undoPtr->segment.size );
+        bcopy(undoPtr->backupData, (char*)undoPtr->segment->segbase+undoPtr->offset, undoPtr->size );
 
         prevUndoPtr = undoPtr;
         undoPtr = undoPtr->next;

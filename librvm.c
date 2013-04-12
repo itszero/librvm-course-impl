@@ -69,12 +69,18 @@ void *rvm_map(rvm_t rvm, const char *segname, int size_to_create)
     seg->name = strdup(segname);
     seg->segbase = (void*)malloc(size_to_create);
     seg->state = MAPPED;
-
+    seg->log_entries_count = 0;
     sprintf(fName, "%s/%s.log", rvm->directoryName, seg->name);
+
     if (access(fName, F_OK) != -1) {
+        printf("%s log file exit!, read it out\n", segname);
+
         seg->file = fopen(fName, "w");
         log_read(seg);
     }
+    else
+        seg->file = fopen(fName, "w");
+
 
     LL_APPEND(rvm->segments, seg);
 

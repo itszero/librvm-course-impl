@@ -72,15 +72,15 @@ void *rvm_map(rvm_t rvm, const char *segname, int size_to_create)
 
     sprintf(fName, "%s/%s.log", rvm->directoryName, seg->name);
     if (access(fName, F_OK) != -1) {
+        seg->file = fopen(fName, "w");
         log_read(seg);
     }
-    seg->file = fopen(fName, "w");
 
     LL_APPEND(rvm->segments, seg);
 
     #ifdef DEBUG
     printf("Map %s with size %d to 0x%x\n", seg->name, size_to_create, seg->segbase);
-    #endif    
+    #endif
 
     return seg->segbase;
 }
@@ -199,7 +199,7 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
     undoPtr = (rvm_undo_t*) malloc( sizeof(rvm_undo_t) );
     segPtr = globalTransPtr->rvmEntry->segments;
     while(segPtr!=NULL) {
-        if(segPtr->segbase==segbase) { 
+        if(segPtr->segbase==segbase) {
             break;
         }
         segPtr = segPtr->next;
@@ -207,9 +207,9 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
     if(segPtr==NULL) {
         printf("[rvm_about_to_modify] Cannot find segment!\n");
         exit(1);
-    }    
+    }
 
-    undoPtr->segment =  segPtr; 
+    undoPtr->segment =  segPtr;
     undoPtr->offset = offset;
     undoPtr->size = size;
     buffer = (void*) malloc( size );

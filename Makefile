@@ -1,4 +1,4 @@
-CC     = g++
+CC     = gcc
 
 LIBSRC = librvm.c log.c
 RVMLIB = librvm.a

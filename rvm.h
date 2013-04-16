@@ -8,7 +8,6 @@
 
 #define DEBUG
 
-
 typedef enum rvm_seg_state_t {
   UNMAPPED, MAPPED
 } rvm_seg_state_t;

@@ -8,9 +8,6 @@
 unsigned long globalTID = 0;
 global_trans_t* globalTransHead = NULL;
 
-
-
-
 int cmp_segbase(rvm_seg_t *a, rvm_seg_t *b)
 {
     long segbase_a = (long)a->segbase;
@@ -73,6 +70,7 @@ void *rvm_map(rvm_t rvm, const char *segname, int size_to_create)
     seg->log_entries_count = 0;
     sprintf(fName, "%s/%s.log", rvm->directoryName, seg->name);
     seg->filePath = strdup(fName);
+    seg->size = size_to_create;
 
     if (access(fName, F_OK) != -1) {
         printf("%s log file exit!, read it out\n", segname);
@@ -111,7 +109,6 @@ void rvm_destroy(rvm_t rvm, const char *segname)
         return;
     }
     LL_DELETE(rvm->segments, seg);
-    free(seg->segbase);
 
     unlink(seg->filePath);
     free(seg->filePath);
@@ -157,7 +154,7 @@ trans_t rvm_begin_trans(rvm_t rvm, int numsegs, void **segbases)
     #ifdef DEBUG
     printf("Create transaction %d with %d segs: ", transPtr->id, transPtr->numsegs);
     for(i=0;i<transPtr->numsegs;i++)
-        printf("0x%x ", transPtr->segbases[i]);
+        printf("0x%08lx ", transPtr->segbases[i]);
     printf("\n");
     #endif
 
@@ -211,7 +208,7 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
         exit(1);
     }
 
-    undoPtr->segment =  segPtr;
+    undoPtr->segment = segPtr;
     undoPtr->offset = offset;
     undoPtr->size = size;
     buffer = (void*) malloc( size );
@@ -226,9 +223,6 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
         printf("%x", charPtr[i]);
     printf("\n");
     #endif
-
-
-
 }
 
 void rvm_commit_trans(trans_t tid)
@@ -266,7 +260,7 @@ void rvm_commit_trans(trans_t tid)
         undoPtr = undoPtr->next;
 
         LL_DELETE(globalTransPtr->trans->undologs, prevUndoPtr);    //Does it free the entry prevUndoPtr?
-        free( prevUndoPtr );
+        // free( prevUndoPtr );
     }
     globalTransPtr->trans->undologs = NULL;
 
@@ -316,5 +310,12 @@ void rvm_abort_trans(trans_t tid)
 
 void rvm_truncate_log(rvm_t rvm)
 {
+    rvm_seg_t *seg;
+    LL_FOREACH(rvm->segments, seg) {
+        #ifdef DEBUG
+        printf("[RVM] Truncating log for segment: %s\n", seg->name);
+        #endif
+        log_truncate(seg);
+    }
 }
 

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "rvm.h"
+#include "log.h"
 
 int* data1;
 long* data2;
@@ -29,12 +30,13 @@ int main(int argc, char *argv[]) {
         data2[i] = i*i*i;
     sprintf(data3, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 
-
     transID = rvm_begin_trans(rvmPtr, 3, logSegbases);
-    rvm_about_to_modify(transID, logSegbases[0], 0, 16*sizeof(int));
+    rvm_about_to_modify(transID, logSegbases[0], 0, 64*sizeof(int));
+    rvm_about_to_modify(transID, logSegbases[0], 32, 16*sizeof(int));
+    rvm_about_to_modify(transID, logSegbases[0], 64, 64*sizeof(int));
     rvm_about_to_modify(transID, logSegbases[1], 0, 16*sizeof(long));
     rvm_about_to_modify(transID, logSegbases[2], 0, 16*sizeof(char));
-   
+
 
     for(i=0;i<16;i++)
         data1[i] = 0xAA;
@@ -43,6 +45,11 @@ int main(int argc, char *argv[]) {
     for(i=0;i<16;i++)
         data3[i] = '9';
     rvm_commit_trans(transID);
+
+    log_write(rvmPtr->segments, 0, 16);
+    log_write(rvmPtr->segments, 16, 32);
+
+    rvm_truncate_log(rvmPtr);
 
     return 0;
 }

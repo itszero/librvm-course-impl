@@ -35,10 +35,6 @@ class RVMTest < Test::Unit::TestCase
     end
   end
 
-  def test_hello
-    true
-  end
-
   private
   def compile(src)
     system "gcc -o a.out ../#{src} ../../librvm.a -I../../ -I../#{File.dirname(src)}/../"

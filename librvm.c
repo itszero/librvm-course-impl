@@ -103,16 +103,25 @@ void rvm_destroy(rvm_t rvm, const char *segname)
 
     target.name = strdup(segname);
     LL_SEARCH(rvm->segments, seg, &target, cmp_segbase);
-    if (seg->state != UNMAPPED)
+    if (seg)
     {
-        fprintf(stderr, "[WARN] Segment: %s is mapped. Unable to destroy it.\n", segname);
-        return;
+        if (seg->state != UNMAPPED)
+        {
+            fprintf(stderr, "[WARN] Segment: %s is mapped. Unable to destroy it.\n", segname);
+            return;
+        }
+        LL_DELETE(rvm->segments, seg);
+        unlink(seg->filePath);
+        free(seg->filePath);
+        free(seg);
     }
-    LL_DELETE(rvm->segments, seg);
+    else
+    {
+        sprintf(fName, "%s/%s.log", rvm->directoryName, segname);
+        unlink(fName);
+    }
 
-    unlink(seg->filePath);
-    free(seg->filePath);
-    free(seg);
+    free(target.name);
 }
 
 trans_t rvm_begin_trans(rvm_t rvm, int numsegs, void **segbases)

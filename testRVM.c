@@ -9,13 +9,14 @@ char* data3;
 int main(int argc, char *argv[]) {
     int i;
     trans_t transID;
-    void* logSegbases[3];
+    void* logSegbases[4];
     printf("Test program starts...\n");
     rvm_t rvmPtr = rvm_init( "TestRVM.log" );
 
     logSegbases[0] = rvm_map(rvmPtr, "Data1", sizeof(int)*1024);
     logSegbases[1] = rvm_map(rvmPtr, "Data2", sizeof(long)*16);
     logSegbases[2] = rvm_map(rvmPtr, "Data3", sizeof(char)*64);
+
 
     data1 = (int*) logSegbases[0];
     data2 = (long*) logSegbases[1];
@@ -33,6 +34,7 @@ int main(int argc, char *argv[]) {
     rvm_about_to_modify(transID, logSegbases[0], 0, 16*sizeof(int));
     rvm_about_to_modify(transID, logSegbases[1], 0, 16*sizeof(long));
     rvm_about_to_modify(transID, logSegbases[2], 0, 16*sizeof(char));
+   
 
     for(i=0;i<16;i++)
         data1[i] = 0xAA;

@@ -2,7 +2,7 @@ CC     = g++
 
 LIBSRC = librvm.c log.c
 RVMLIB = librvm.a
-TESTSRC = testRVM.c librvm.c rvm.h librvm.a
+TESTSRC = testRVM.c
 TEST = testRVM
 
 CFLAGS = -Wall -g
@@ -13,7 +13,7 @@ $(RVMLIB): $(LIBSRC:.c=.o)
 	ar rcs $(RVMLIB) $^
 
 $(TEST): $(TESTSRC:.c=.o) $(RVMLIB)
-	$(CC) -o $@  $(TESTSRC)
+	$(CC) -o $@ $(TESTSRC) $(RVMLIB)
 
 clean:
 	rm $(LIBSRC:.c=.o) $(RVMLIB) $(TEST)

@@ -1,4 +1,5 @@
 #include "log.h"
+#include <stdlib.h>
 
 void log_read(rvm_seg_t *segment)
 {

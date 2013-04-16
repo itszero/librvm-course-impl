@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
         data2[i] = i*i*i;
     sprintf(data3, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 
+
     transID = rvm_begin_trans(rvmPtr, 3, logSegbases);
     rvm_about_to_modify(transID, logSegbases[0], 0, 16*sizeof(int));
     rvm_about_to_modify(transID, logSegbases[1], 0, 16*sizeof(long));
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]) {
     for(i=0;i<16;i++)
         data2[i] = 0xBB;
     for(i=0;i<16;i++)
-        data3[i] = '6';
+        data3[i] = '9';
     rvm_commit_trans(transID);
 
     return 0;

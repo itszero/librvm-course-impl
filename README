@@ -1,0 +1,22 @@
+/************************************************/
+/* CS6220 Project 4: Recoverable Virtual Memory */
+/* Team: Ching-Kai Liang, Chien-An Cho          */
+/************************************************/
+
+Q1. How to compile?
+Ans: Type make and the make file will compile the library. 
+     There are two header files, rvm.h and log.h
+     You should only need to include rvm.h to use the library.
+     The source code for rvm.h is in librvm.c.
+     The source code for log.h is in log.c, which contains all the functions related to log file access. 
+    
+
+Q2. Log file structures?
+Ans: The log file subsystem creates a seperate log file for each directory-segment pair.
+     It stores the offset for the segment, the size of the segment, and the updated value.
+     If the log segement was not successfully updated, it will restore back to its previous state when loading the log file. 
+     The checking of a successful logging is by comparing the size of the data.
+     To clean up the log file, we perform a truncate_log after the log file exceeds some threshold.
+
+
+

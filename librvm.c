@@ -182,6 +182,12 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
     int i;
     rvm_seg_t* segPtr;
 
+    if(tid==-1) {
+        printf("[rvm_about_to_modify] ERROR! Illegal transaction id %d, ignore!\n");
+        return;
+    }
+    
+
     //Find the transaction entry in the global transaction list
     globalTransPtr = globalTransHead;
     while( globalTransPtr!=NULL ) {
@@ -193,8 +199,8 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
             globalTransPtr = globalTransPtr->next;
     }
     if(!transFound) {
-        printf("[rvm_about_to_modify] ERROR! Did not find transaction %d\n", (int)tid);
-        exit(1);
+        printf("[rvm_about_to_modify] ERROR! Did not find transaction %d. Ignore and return.\n", (int)tid);
+        return;
     }
 
     //Create undo copy and set the segModify flag
@@ -213,8 +219,8 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
         segPtr = segPtr->next;
     }
     if(segPtr==NULL) {
-        printf("[rvm_about_to_modify] Cannot find segment!\n");
-        exit(1);
+        printf("[rvm_about_to_modify] ERROR! Cannot find segment! Ignore and return.\n");
+        return;
     }
 
     undoPtr->segment = segPtr;
@@ -243,6 +249,8 @@ void rvm_commit_trans(trans_t tid)
     rvm_undo_t* prevUndoPtr;
     FILE* filePtr;
     rvm_seg_t *segPtr;
+    rvm_seg_t *seg = NULL;
+    rvm_data_t* rvmPtr;
 
     //Find the transaction entry in the global transaction list
     globalTransPtr = globalTransHead;
@@ -255,27 +263,46 @@ void rvm_commit_trans(trans_t tid)
             globalTransPtr = globalTransPtr->next;
     }
     if(!transFound) {
-        printf("[rvm_abort_trans] ERROR! Did not find transaction %d\n", (int)tid);
-        exit(1);
+        printf("[rvm_commit_trans] ERROR! Did not find transaction %d. Ignore and return.\n", (int)tid);
+        return;
     }
 
     //Write the diff into log file
     transPtr = globalTransPtr->trans;
+    rvmPtr = globalTransPtr->rvmEntry;
     undoPtr = transPtr->undologs;
     while(undoPtr!=NULL) {
-        log_write(undoPtr->segment, undoPtr->offset, undoPtr->size);
-
+        LL_SEARCH(rvmPtr->segments, seg, undoPtr->segment, cmp_segbase);
+        if(seg==NULL) {
+            printf("[rvm_commit_trans] ERROR! Cannot find segment %s! Ignore and return.\n", undoPtr->segment->name);
+            return;
+        }
+        else if(seg->state != MAPPED) {
+            printf("[rvm_commit_trans] ERROR! Segment %s is in state %d(0:UNMAPPED, 1:MAPPED), ignore commit for this segment\n", undoPtr->segment->name, seg->state);
+        }
+        else {
+            #ifdef DEBUG
+            printf("[rvm_commit_trans] Committing segment %s\n", undoPtr->segment->name);
+            #endif
+            log_write(undoPtr->segment, undoPtr->offset, undoPtr->size);
+        }
         prevUndoPtr = undoPtr;
         undoPtr = undoPtr->next;
 
         LL_DELETE(globalTransPtr->trans->undologs, prevUndoPtr);    //Does it free the entry prevUndoPtr?
-        // free( prevUndoPtr );
+        free( prevUndoPtr );
     }
     globalTransPtr->trans->undologs = NULL;
 
     //Remove this transaction
     LL_DELETE(globalTransPtr->rvmEntry->transactions, globalTransPtr->trans);
     LL_DELETE(globalTransHead, globalTransPtr);
+
+    //Free transaction entries
+    free( transPtr->segbases );
+    free( transPtr->segModify );
+    free( transPtr );
+    free( globalTransPtr );
 }
 
 void rvm_abort_trans(trans_t tid)
@@ -284,6 +311,9 @@ void rvm_abort_trans(trans_t tid)
     bool transFound = false;
     rvm_undo_t* undoPtr;
     rvm_undo_t* prevUndoPtr;
+    rvm_trans_t* transPtr;
+    rvm_data_t* rvmPtr;
+    rvm_seg_t *seg = NULL;
 
     //Find the transaction entry in the global transaction list
     globalTransPtr = globalTransHead;
@@ -301,20 +331,41 @@ void rvm_abort_trans(trans_t tid)
     }
 
     //Undo all modifications
+    transPtr = globalTransPtr->trans;
     undoPtr = globalTransPtr->trans->undologs;
+    rvmPtr = globalTransPtr->rvmEntry;
     while(undoPtr!=NULL) {
-        bcopy(undoPtr->backupData, (char*)undoPtr->segment->segbase+undoPtr->offset, undoPtr->size );
-
+        LL_SEARCH(rvmPtr->segments, seg, undoPtr->segment, cmp_segbase);
+        if(seg==NULL) {
+            printf("[rvm_abort_trans] ERROR! Cannot find segment %s. It has never been mapped. THIS SHOULD NOT HAPPEN!\n", undoPtr->segment->name);
+            exit(1);
+        }
+        else if(seg->state != MAPPED) {
+            printf("[rvm_abort_trans] ERROR! Segment %s is in state %d(0:UNMAPPED, 1:MAPPED), ignore commit for this segment\n", undoPtr->segment->name, seg->state);
+        }
+        else {
+            #ifdef DEBUG
+            printf("[rvm_abort_trans] Aborting segment %s\n", undoPtr->segment->name);
+            #endif
+            bcopy(undoPtr->backupData, (char*)undoPtr->segment->segbase+undoPtr->offset, undoPtr->size );
+        }
         prevUndoPtr = undoPtr;
         undoPtr = undoPtr->next;
 
         LL_DELETE(globalTransPtr->trans->undologs, prevUndoPtr);    //Does it free the entry prevUndoPtr?
+        free( prevUndoPtr );
     }
     globalTransPtr->trans->undologs = NULL;
 
     //Remove this transaction
     LL_DELETE(globalTransPtr->rvmEntry->transactions, globalTransPtr->trans);
     LL_DELETE(globalTransHead, globalTransPtr);
+
+    //Free trans entry and globalTransEntry
+    free( transPtr->segbases );
+    free( transPtr->segModify );
+    free( transPtr );
+    free( globalTransPtr );
 }
 
 void rvm_truncate_log(rvm_t rvm)

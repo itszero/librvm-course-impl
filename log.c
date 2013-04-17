@@ -26,7 +26,11 @@ void log_read(rvm_seg_t *segment)
       printf("[FATAL] Read (%d, %d), seg size=%d\n", offset, size, segment->size);
       exit(-1);
     }
-    fread((char*)segment->segbase + offset, sizeof(char), size, file);
+    int c = fread((char*)segment->segbase + offset, sizeof(char), size, file);
+    if (c != size)
+    {
+      printf("[FATAL] Expected %d bytes of data, read %d bytes\n", size, c);
+    }
     #ifdef DEBUG
     printf("[Log] read: segment=%s, offset=%d, size=%d\n", segment->name, offset, size);
     #endif

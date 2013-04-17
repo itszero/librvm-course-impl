@@ -4,3 +4,4 @@
 testRVM
 TestRVM.log
 tests/tmp
+*.d

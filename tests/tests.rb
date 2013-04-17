@@ -28,7 +28,7 @@ class RVMTest < Test::Unit::TestCase
     rm_r "tmp" if File.directory? "tmp"
   end
 
-  Dir["src/**/*.c"].each do |file|
+  Dir["#{ARGV[0] || "src"}/**/*.c"].each do |file|
     define_method "test_#{File.dirname(file).gsub(/\//, '_')}_#{File.basename(file, ".c")}_c" do
       msg = `./a.out 2>&1`
       assert_equal(0, $?.exitstatus, "Source: #{file}\nThis test terminated abnormally (#{$?.exitstatus}):\n#{msg}")

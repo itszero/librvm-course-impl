@@ -5,7 +5,7 @@ RVMLIB = librvm.a
 TESTSRC = testRVM.c
 TEST = testRVM
 
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -std=c99 -DDEBUG
 
 all: $(RVMLIB) $(TEST)
 

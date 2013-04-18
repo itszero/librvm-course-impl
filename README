@@ -1,0 +1,29 @@
+/************************************************/
+/* CS6220 Project 4: Recoverable Virtual Memory */
+/* Team: Ching-Kai Liang, Chien-An Cho          */
+/************************************************/
+
+Q1. How to compile?
+Ans: Type make and the make file will compile the library. 
+     There are two header files, rvm.h and log.h
+     You should only need to include rvm.h to use the library.
+     The source code for rvm.h is in librvm.c.
+     The source code for log.h is in log.c, which contains all the functions related to log file access. 
+    
+
+Q2. Log file structures?
+Ans: The log file subsystem creates a seperate log file for each directory-segment pair.
+     It stores the offset for the segment, the size of the segment, and the updated value.
+     If the log segement was not successfully updated, it will restore back to its previous state when loading the log file. 
+     The checking of a successful logging is by comparing the size of the data.
+     To clean up the log file, we perform a truncate_log after the log file exceeds some threshold.
+
+
+Q3. Implementation detail?
+Ans: 1. We ensured that any segment cannot be active in two different transactions, even if the about_to_modify region are exclusive.
+        The checking will be performed when we perform the begin_trans. Therefore, there cannot be nested transaction that access the same
+        segments.
+     2. Before commiting/aborting a transaction, we will check if all the segments are still mapped. If the segment is unmapped, then the data will not be
+        logged or restored back to its old value. However, any other segments in the transaction will still be commited/restored if it is still mapped. 
+
+      

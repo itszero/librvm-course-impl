@@ -34,12 +34,12 @@ int is_seg_exist(rvm_t rvm, const char *segname)
 
 rvm_t rvm_init(const char *directory)
 {
-    char buf[1024];
     rvm_t rvm = (rvm_t)malloc(sizeof(rvm_data_t));
     memset(rvm, 0, sizeof(rvm));
     rvm->directoryName = strdup(directory);
     rvm->segments = NULL;
     rvm->transactions = NULL;
+    rvm->log_info = (log_t*)malloc(sizeof(log_t));
 
     struct stat sb;
     if (!(stat(directory, &sb) == 0 && S_ISDIR(sb.st_mode)))
@@ -51,6 +51,7 @@ rvm_t rvm_init(const char *directory)
         }
     }
 
+    log_init(rvm);
     return rvm;
 }
 
@@ -72,15 +73,13 @@ void *rvm_map(rvm_t rvm, const char *segname, int size_to_create)
     seg->filePath = strdup(fName);
     seg->size = size_to_create;
 
-    if (access(fName, F_OK) != -1) {
-        printf("%s log file exit!, read it out\n", segname);
-        log_read(seg);
-    }
+    if (access(fName, F_OK) != -1)
+        log_read(rvm, seg);
 
     LL_APPEND(rvm->segments, seg);
 
     #ifdef DEBUG
-    printf("Map %s with size %d to 0x%x\n", seg->name, size_to_create, seg->segbase);
+    fprintf(stderr, "[RVM] Map %s with size %d to 0x%lx\n", seg->name, size_to_create, (long)seg->segbase);
     #endif
 
     return seg->segbase;
@@ -161,16 +160,14 @@ trans_t rvm_begin_trans(rvm_t rvm, int numsegs, void **segbases)
     LL_APPEND(globalTransHead, globalTransPtr);
 
     #ifdef DEBUG
-    printf("Create transaction %d with %d segs: ", transPtr->id, transPtr->numsegs);
+    fprintf(stderr, "Create transaction %d with %d segs: ", transPtr->id, transPtr->numsegs);
     for(i=0;i<transPtr->numsegs;i++)
-        printf("0x%08lx ", transPtr->segbases[i]);
-    printf("\n");
+        fprintf(stderr, "0x%08lx ", (long)transPtr->segbases[i]);
+    fprintf(stderr, "\n");
     #endif
 
     return transPtr->id;
 }
-
-
 
 void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
 {
@@ -193,7 +190,7 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
             globalTransPtr = globalTransPtr->next;
     }
     if(!transFound) {
-        printf("[rvm_about_to_modify] ERROR! Did not find transaction %d\n", (int)tid);
+        fprintf(stderr, "[rvm_about_to_modify] ERROR! Did not find transaction %d\n", (int)tid);
         exit(1);
     }
 
@@ -213,7 +210,7 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
         segPtr = segPtr->next;
     }
     if(segPtr==NULL) {
-        printf("[rvm_about_to_modify] Cannot find segment!\n");
+        fprintf(stderr, "[rvm_about_to_modify] Cannot find segment!\n");
         exit(1);
     }
 
@@ -226,11 +223,11 @@ void rvm_about_to_modify(trans_t tid, void *segbase, int offset, int size)
     LL_APPEND(transPtr->undologs, undoPtr);
 
     #ifdef DEBUG
-    printf("Backup transaction %d, segment %s(0x%x), data:", tid, segPtr->name, segPtr->segbase);
+    fprintf(stderr, "Backup transaction %d, segment %s(0x%lx), data:", tid, segPtr->name, (long)segPtr->segbase);
     char* charPtr = (char*)undoPtr->backupData;
     for(i=0;i<size;i++)
-        printf("%x", charPtr[i]);
-    printf("\n");
+        fprintf(stderr, "%x", charPtr[i]);
+    fprintf(stderr, "\n");
     #endif
 }
 
@@ -241,8 +238,6 @@ void rvm_commit_trans(trans_t tid)
     bool transFound = false;
     rvm_undo_t* undoPtr;
     rvm_undo_t* prevUndoPtr;
-    FILE* filePtr;
-    rvm_seg_t *segPtr;
 
     //Find the transaction entry in the global transaction list
     globalTransPtr = globalTransHead;
@@ -255,15 +250,16 @@ void rvm_commit_trans(trans_t tid)
             globalTransPtr = globalTransPtr->next;
     }
     if(!transFound) {
-        printf("[rvm_abort_trans] ERROR! Did not find transaction %d\n", (int)tid);
+        fprintf(stderr, "[rvm_abort_trans] ERROR! Did not find transaction %d\n", (int)tid);
         exit(1);
     }
 
     //Write the diff into log file
+    log_start(globalTransPtr->rvmEntry);
     transPtr = globalTransPtr->trans;
     undoPtr = transPtr->undologs;
     while(undoPtr!=NULL) {
-        log_write(undoPtr->segment, undoPtr->offset, undoPtr->size);
+        log_write(globalTransPtr->rvmEntry, undoPtr->segment, undoPtr->offset, undoPtr->size);
 
         prevUndoPtr = undoPtr;
         undoPtr = undoPtr->next;
@@ -272,6 +268,7 @@ void rvm_commit_trans(trans_t tid)
         // free( prevUndoPtr );
     }
     globalTransPtr->trans->undologs = NULL;
+    log_commit(globalTransPtr->rvmEntry);
 
     //Remove this transaction
     LL_DELETE(globalTransPtr->rvmEntry->transactions, globalTransPtr->trans);
@@ -296,7 +293,7 @@ void rvm_abort_trans(trans_t tid)
             globalTransPtr = globalTransPtr->next;
     }
     if(!transFound) {
-        printf("[rvm_abort_trans] ERROR! Did not find transaction %d\n", (int)tid);
+        fprintf(stderr, "[rvm_abort_trans] ERROR! Did not find transaction %d\n", (int)tid);
         exit(1);
     }
 
@@ -319,12 +316,6 @@ void rvm_abort_trans(trans_t tid)
 
 void rvm_truncate_log(rvm_t rvm)
 {
-    rvm_seg_t *seg;
-    LL_FOREACH(rvm->segments, seg) {
-        #ifdef DEBUG
-        printf("[RVM] Truncating log for segment: %s\n", seg->name);
-        #endif
-        log_truncate(seg);
-    }
+    log_truncate(rvm);
 }
 

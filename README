@@ -1,29 +1,51 @@
-/************************************************/
-/* CS6220 Project 4: Recoverable Virtual Memory */
-/* Team: Ching-Kai Liang, Chien-An Cho          */
-/************************************************/
+CS6220 Project 4: Recoverable Virtual Memory
+============================================
 
-Q1. How to compile?
-Ans: Type make and the make file will compile the library. 
-     There are two header files, rvm.h and log.h
-     You should only need to include rvm.h to use the library.
-     The source code for rvm.h is in librvm.c.
-     The source code for log.h is in log.c, which contains all the functions related to log file access. 
-    
+Team: Ching-Kai Liang, Chien-An Cho
 
-Q2. Log file structures?
-Ans: The log file subsystem creates a seperate log file for each directory-segment pair.
-     It stores the offset for the segment, the size of the segment, and the updated value.
-     If the log segement was not successfully updated, it will restore back to its previous state when loading the log file. 
-     The checking of a successful logging is by comparing the size of the data.
-     To clean up the log file, we perform a truncate_log after the log file exceeds some threshold.
+1. How to compile?
 
+  Type `make` and the make file will compile the library.
+  There are two header files, rvm.h and log.h
+  You should only need to include rvm.h to use the library.
+  The source code for rvm.h is in librvm.c.
+  The source code for log.h is in log.c, which contains all the functions
+  related to log file access.
 
-Q3. Implementation detail?
-Ans: 1. We ensured that any segment cannot be active in two different transactions, even if the about_to_modify region are exclusive.
-        The checking will be performed when we perform the begin_trans. Therefore, there cannot be nested transaction that access the same
-        segments.
-     2. Before commiting/aborting a transaction, we will check if all the segments are still mapped. If the segment is unmapped, then the data will not be
-        logged or restored back to its old value. However, any other segments in the transaction will still be commited/restored if it is still mapped. 
+2. Log file structures?
 
-      
+  The log file subsystem creates a seperate log file for each directory-segment
+  pair. It stores the transaction id, the offset for the segment, the size of
+  the segment, and the updated value. If the log segement was not successfully
+  stored, it will restore back to state of known last normal transaction.
+  Transactions is verified by making sure offset/size is in range, data is at
+  the exact size and having exact SHA-256 checksum as recorded in file.
+
+3. Implementation detail?
+
+  1. We ensured that any segment cannot be active in two different
+  transactions, even if the about_to_modify region are exclusive. The checking
+  will be performed when we perform the begin_trans. Therefore, there cannot be
+  nested transaction that access the same segments.
+
+  2. Before commiting/aborting a transaction, we will check if all the segments
+  are still mapped. If the segment is unmapped, then the data will not be
+  logged or restored back to its old value. However, any other segments in the
+  transaction will still be commited/restored if it is still mapped.
+
+4. Thoughts
+
+  The API suffers from a major problem. Our system is currently implemented as
+  segment-based transactions. That means, when we're reading back a log file
+  and one of the block is corrupted. We will restore it to the state in last
+  transaction.  However, the rollback operation isn't synced for all segments.
+  So Seg1 and Seg2 might be restored to the state of different transactions.
+  This limitation is caused by the fact that rvm_map can happend anytime.
+  During the RVM system is initialized and log files being read back, there is
+  no reliable way to making sure the segments is still the same.
+
+  However, our implementation does gurantees that for each segment, it will
+  restore to a previous known transaction correctly. It was acheived by using
+  incremental log file. Since the log entires is also protected by SHA-256
+  hash, it protects the system from disk corruption as well.
+

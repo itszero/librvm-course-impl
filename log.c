@@ -3,6 +3,21 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "utlist.h"
+#include "sha256.h"
+
+int check_hash(unsigned char hash[], unsigned char filehash[])
+{
+  for(int i=0;i<32;i++)
+  {
+    if (hash[i] != filehash[i])
+    {
+      fprintf(stderr, "[FATAL] SHA-1 Checksum mismatch. Data corruption detected.\n");
+      return -1;
+    }
+  }
+
+  return 0;
+}
 
 int cmp_offset(log_header_t *a, log_header_t *b)
 {
@@ -55,6 +70,7 @@ void log_init(rvm_data_t *rvm)
 
 void log_read(rvm_data_t *rvm, rvm_seg_t *segment)
 {
+  unsigned char hash[32], filehash[32];
   int offset, size, trans_id;
 
   FILE *file = fopen(segment->filePath, "r");
@@ -92,6 +108,13 @@ void log_read(rvm_data_t *rvm, rvm_seg_t *segment)
       fprintf(stderr, "[WARN] Expected %d bytes of data, read %d bytes\n", size, c);
       exit(-1);
     }
+    fread(filehash, 1, 32, file);
+    sha256_do((unsigned char*)segment->segbase + offset, size, hash);
+    if (check_hash(hash, filehash) != 0)
+    {
+      fclose(file);
+      return;
+    }
   }
 
   fclose(file);
@@ -109,6 +132,7 @@ void log_start(rvm_data_t *rvm)
 
 void log_write(rvm_data_t *rvm, rvm_seg_t *segment, int offset, int size)
 {
+  unsigned char hash[32];
   int trans_id = current_transaction_id(rvm);
   FILE *file = fopen(segment->filePath, "a");
   if (file == NULL)
@@ -121,6 +145,8 @@ void log_write(rvm_data_t *rvm, rvm_seg_t *segment, int offset, int size)
   fwrite(&offset, sizeof(int), 1, file);
   fwrite(&size, sizeof(int), 1, file);
   fwrite((char*)segment->segbase + offset, size, 1, file);
+  sha256_do((unsigned char*)segment->segbase + offset, size, hash);
+  fwrite(hash, 32, 1, file);
 
   #ifdef DEBUG
   fprintf(stderr, "[Log] write: trans_id=%d, segment=%s, offset=%d, size=%d\n", trans_id, segment->name, offset, size);
@@ -150,6 +176,7 @@ void log_commit(rvm_data_t *rvm)
 
 static void log_truncate_segment(rvm_data_t *rvm, rvm_seg_t *segment)
 {
+  unsigned char hash[32], filehash[32];
   int new_trans_id = 1, trans_id;
   FILE *file = fopen(segment->filePath, "r");
   if (file == NULL)
@@ -174,6 +201,9 @@ static void log_truncate_segment(rvm_data_t *rvm, rvm_seg_t *segment)
       continue;
     }
     fread((char*)data + offset, 1, size, file);
+    fread(filehash, 1, 32, file);
+    sha256_do((unsigned char*)data + offset, size, hash);
+    check_hash(hash, filehash);
     fprintf(stderr, "[Log] truncate_read: trans_id=%d, segment=%s, offset=%d, size=%d\n", trans_id, segment->name, offset, size);
     log_header_t *header = (log_header_t*)malloc(sizeof(log_header_t));
     header->offset = offset;
@@ -220,6 +250,8 @@ static void log_truncate_segment(rvm_data_t *rvm, rvm_seg_t *segment)
     fwrite(&e->offset, sizeof(int), 1, file);
     fwrite(&e->size, sizeof(int), 1, file);
     fwrite((unsigned char*)data + e->offset, 1, e->size, file);
+    sha256_do((unsigned char*)data + offset, size, hash);
+    fwrite(hash, 1, 32, file);
     fprintf(stderr, "[Log] truncate_write: trans_id=%d, segment=%s, offset=%d, size=%d\n", new_trans_id, segment->name, e->offset, e->size);
   }
   fclose(file);

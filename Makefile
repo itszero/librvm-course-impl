@@ -1,6 +1,6 @@
 CC     = gcc
 
-LIBSRC = librvm.c log.c
+LIBSRC = librvm.c log.c sha256.c
 RVMLIB = librvm.a
 TESTSRC = testRVM.c
 TEST = testRVM

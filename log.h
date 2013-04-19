@@ -23,6 +23,7 @@ typedef struct log_header_t {
 void log_init(rvm_data_t *rvm);
 void log_read(rvm_data_t *rvm, rvm_seg_t *segment);
 void log_start(rvm_data_t *rvm);
+void log_write_header(rvm_data_t *rvm, rvm_seg_t *segment);
 void log_write(rvm_data_t *rvm, rvm_seg_t *segment, int offset, int size);
 void log_commit(rvm_data_t *rvm);
 void log_truncate(rvm_data_t *rvm);

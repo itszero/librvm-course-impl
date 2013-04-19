@@ -75,6 +75,8 @@ void *rvm_map(rvm_t rvm, const char *segname, int size_to_create)
 
     if (access(fName, F_OK) != -1)
         log_read(rvm, seg);
+    else
+        log_write_header(rvm, seg);
 
     LL_APPEND(rvm->segments, seg);
 

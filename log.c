@@ -72,12 +72,21 @@ void log_read(rvm_data_t *rvm, rvm_seg_t *segment)
 {
   unsigned char hash[32], filehash[32];
   int offset, size, trans_id;
+  int seg_size = 0;
 
   FILE *file = fopen(segment->filePath, "r");
   if (file == NULL)
   {
     fprintf(stderr, "[FATAL] Unable to open log file. Bail out.\n");
     exit(-1);
+  }
+
+  fread(&seg_size, sizeof(int), 1, file);
+  if (seg_size > segment->size)
+  {
+    free(segment->segbase);
+    segment->segbase = (void*)malloc(seg_size);
+    segment->size = seg_size;
   }
 
   while(true)
@@ -128,6 +137,19 @@ void log_start(rvm_data_t *rvm)
   rvm->log_info->trans_ids[rvm->log_info->count] = rvm->log_info->next_trans_id;
   rvm->log_info->next_trans_id++;
   rvm->log_info->count++;
+}
+
+void log_write_header(rvm_data_t *rvm, rvm_seg_t *segment)
+{
+  FILE *file = fopen(segment->filePath, "w");
+  if (file == NULL)
+  {
+    fprintf(stderr, "[FATAL] Unable to open log file. Bail out.\n");
+    exit(-1);
+  }
+
+  fwrite(&segment->size, sizeof(int), 1, file);
+  fclose(file);
 }
 
 void log_write(rvm_data_t *rvm, rvm_seg_t *segment, int offset, int size)
@@ -188,6 +210,9 @@ static void log_truncate_segment(rvm_data_t *rvm, rvm_seg_t *segment)
   // read everything out into a separate buffer
   void *data = (void*)malloc(segment->size);
 
+  // it suppose to be segment size, but we're going to ignore it.
+  fread(&size, sizeof(int), 1, file);
+
   while(true)
   {
     if ( (fread(&trans_id, sizeof(int), 1, file) == 0) && feof(file) )
@@ -244,6 +269,8 @@ static void log_truncate_segment(rvm_data_t *rvm, rvm_seg_t *segment)
     fprintf(stderr, "[FATAL] Unable to open log file for writing. Bail out.\n");
     exit(-1);
   }
+
+  fwrite(&segment->size, sizeof(int), 1, file);
 
   LL_FOREACH(logs, e) {
     fwrite(&new_trans_id, sizeof(int), 1, file);
